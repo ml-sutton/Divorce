@@ -1,4 +1,4 @@
-use std::{env, f32::consts::E};
+use std::env;
 
 pub fn is_in_tmux() -> bool {
   match env::var("TMUX") {

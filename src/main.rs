@@ -4,7 +4,7 @@
 //! tmux extension
 use std::{env, process::exit};
 
-use crate::{fzf::fzf_session::fzf_sessions, tmux::in_tmux::{self, is_in_tmux}};
+use crate::{fzf::fzf_session::fzf_sessions, git_cli::get_git_details::get_git_details, tmux::in_tmux::{self, is_in_tmux}};
 
 mod tmux;
 mod git_cli;
@@ -23,7 +23,13 @@ fn main() {
     
     match command.as_str() {
         "fzf" => switch_with_fzf(),
-        "new" => println!("new session"),
+        "new" => {
+            if arguments.len() >= 3 {
+                new_session(Some(arguments[2].clone()));
+            } else {
+                new_session(None);
+            }
+        },
         _ => println!("idk mang")
     }
 }
@@ -48,12 +54,23 @@ fn switch_with_fzf() {
         current_session = tmux::get_current_session::get_current_session(is_in_tmux);
     }
     if current_session != "" {
-        let sessions: Vec<String> = open_sessions.iter().filter(|s| **s == current_session).cloned().collect();
+        let sessions: Vec<String> = open_sessions.iter().filter(|s| **s != current_session).cloned().collect();
         let selected = fzf_sessions(sessions);
-        println!("{}",selected);
+        tmux::switch_session::switch_session(selected);
         return
     }
     let selected = fzf_sessions(open_sessions);
-    println!("{}", selected)
-
+    tmux::switch_session::switch_session(selected);
+    return
+}
+fn new_session(new_session_name: Option<String>) {
+    match new_session_name {
+        Some(session_name)=> tmux::new_session::new_session(session_name),
+        None => {
+            let name_attempt = get_git_details();
+            if name_attempt != "" {
+                tmux::new_session::new_session(name_attempt);
+            }
+        }
+    }
 }

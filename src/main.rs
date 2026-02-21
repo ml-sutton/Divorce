@@ -2,35 +2,41 @@
 //! divorce
 //!
 //! tmux extension
-use std::{env, process::exit};
+use std::{process::exit};
+use args::arg_parse;
 
-
+mod args;
 mod tmux;
 mod git;
 mod fzf;
+
 fn main() {
-    let arguments: Vec<String> = env::args().collect();
-    if arguments.len() < 2 {
-        println!("help");
-        exit(1);
-    }
+    let arguments = arg_parse().get_matches();
+    
+
     if !check_command() {
         println!("missing program");
         exit(1);
     }
-    let command = arguments[1].to_lowercase();
-    
-    match command.as_str() {
-        "fzf" => switch_with_fzf(),
-        "new" => {
-            if arguments.len() >= 3 {
-                new_session(Some(arguments[2].clone()));
-            } else {
-                new_session(None);
-            }
-        },
-        _ => println!("idk mang")
+    match arguments.subcommand() {
+        Some(("fzf",_sub_matches)) => switch_with_fzf(),
+        Some(("new",sub_matches)) => new_session(sub_matches.get_one::<String>("name").map(|s|s.as_str())),
+        _ => unreachable!()
+
     }
+    // let command = arguments[1].to_lowercase();
+    
+    // match command.as_str() {
+    //     "fzf" => switch_with_fzf(),
+    //     "new" => {
+    //         if arguments.len() >= 3 {
+    //             new_session(Some(arguments[2].clone()));
+    //         } else {
+    //             new_session(None);
+    //         }
+    //     },
+    //     _ => println!("idk mang")
+    // }
 }
 fn check_command() -> bool{
     let _has_git: bool = git::has_git();
@@ -62,14 +68,8 @@ fn switch_with_fzf() {
     tmux::switch_session(&selected);
     return
 }
-fn new_session(new_session_name: Option<String>) {
-    match new_session_name {
-        Some(session_name)=> tmux::new_session(session_name),
-        None => {
-            let name_attempt = git::get_git_details();
-            if name_attempt != "" {
-                tmux::new_session(name_attempt);
-            }
-        }
-    }
+fn new_session(new_session_name: Option<&str>) {
+    
+
+
 }

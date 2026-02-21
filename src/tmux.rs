@@ -43,8 +43,8 @@ pub fn list_sessions() -> Vec<String> {
   return open_sessions
 }
 
-pub fn new_session(session_name: String){
-  let _ = Command::new("tmux").args(["new-session","-A","-s",session_name.as_str()]).exec();
+pub fn new_session(session_name: &str){
+  let _ = Command::new("tmux").args(["new-session","-A","-s",session_name]).exec();
 
 }
 pub fn switch_session(session_name: &String) {
@@ -53,5 +53,13 @@ pub fn switch_session(session_name: &String) {
       None => String::from("").to_string(),
   };
   let err = Command::new("tmux").arg("switch-client").arg("-t").arg(stripped_session_name.as_str()).exec();
+  println!("{}", err);
+}
+pub fn attach_to_session(session_name: &String) {
+  let stripped_session_name = match session_name.strip_suffix("\n") {
+      Some(_session_name) => _session_name.to_string(),
+      None => String::from("").to_string(),
+  };
+  let err = Command::new("tmux").arg("attach").arg("-t").arg(stripped_session_name.as_str()).exec();
   println!("{}", err);
 }

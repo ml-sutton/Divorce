@@ -2,74 +2,97 @@
 //! divorce
 //!
 //! tmux extension
-use std::{process::exit};
-use args::arg_parse;
-
 mod args;
 mod tmux;
 mod git;
 mod fzf;
 
-fn main() {
-    let arguments = arg_parse().get_matches();
-    
+use git::{get_git_branch, has_git};
+use std::process::exit;
+use args::arg_parse;
+use tmux::{new_session, has_tmux,attach_to_session,switch_session,is_in_tmux,list_sessions,get_current_session};
+use fzf::{has_fzf,fzf_sessions};
+use log::error;
+#[derive(Debug, Clone)]
+struct MissingProgramError {
+    pub missing_program_vec : Vec<String>,
+}   
 
-    if !check_command() {
-        println!("missing program");
-        exit(1);
+
+
+
+
+
+fn main() {
+    let has_programs = check_command();
+    match has_programs {
+        Ok(_) => print!(""),
+        Err(missing_program) => {
+            error!("{:#?}",missing_program);
+            exit(1)
+        }
     }
+    let arguments = arg_parse().get_matches();
     match arguments.subcommand() {
         Some(("fzf",_sub_matches)) => switch_with_fzf(),
-        Some(("new",sub_matches)) => new_session(sub_matches.get_one::<String>("name").map(|s|s.as_str())),
+        Some(("new",sub_matches)) => create_new_session(sub_matches.get_one::<String>("name").map(|s|s.as_str())),
         _ => unreachable!()
 
     }
-    // let command = arguments[1].to_lowercase();
-    
-    // match command.as_str() {
-    //     "fzf" => switch_with_fzf(),
-    //     "new" => {
-    //         if arguments.len() >= 3 {
-    //             new_session(Some(arguments[2].clone()));
-    //         } else {
-    //             new_session(None);
-    //         }
-    //     },
-    //     _ => println!("idk mang")
-    // }
 }
-fn check_command() -> bool{
-    let _has_git: bool = git::has_git();
-    let _has_fzf: bool = fzf::has_fzf();
-    let _has_tmux: bool = tmux::has_tmux();
-    if !_has_fzf || !_has_git || !_has_tmux {
-        return false;
+fn check_command() -> Result<bool, MissingProgramError>{
+    let mut missing_programs: Vec<String> = vec!();
+    let has_git = has_git();
+    let has_fzf = has_fzf();
+    let has_tmux = has_tmux();
+    if !has_git {
+        missing_programs.push(String::from("git"));
     }
-    return true
-}
+    if !has_fzf {
+        missing_programs.push(String::from("fzf"));
+    }
+    if !has_tmux {
+        missing_programs.push(String::from("tmux"));
+    }
+    if missing_programs.len() != 0 {
+        return Err(MissingProgramError { missing_program_vec: missing_programs })
+    } else {
+        return Ok(true)
+    }
+
+}   
 
 fn switch_with_fzf() {
-    let open_sessions = tmux::list_sessions();
+    let open_sessions = list_sessions();
     let mut current_session = String::new();
     if open_sessions.len() <= 0 {
         return
     }
-    let is_in_tmux = tmux::is_in_tmux();
+    let is_in_tmux = is_in_tmux();
     if is_in_tmux {
-        current_session = tmux::get_current_session(is_in_tmux);
+        current_session = get_current_session(is_in_tmux);
     }
     if current_session != "" {
         let sessions: Vec<String> = open_sessions.iter().filter(|s| **s != current_session).cloned().collect();
-        let selected = fzf::fzf_sessions(sessions);
-        tmux::switch_session(&selected);
+        let selected = fzf_sessions(sessions);
+        switch_session(&selected);
         return
     }
-    let selected = fzf::fzf_sessions(open_sessions);
-    tmux::switch_session(&selected);
+    let selected = fzf_sessions(open_sessions);
+    attach_to_session(&selected);
     return
 }
-fn new_session(new_session_name: Option<&str>) {
-    
+fn create_new_session(new_session_name: Option<&str>) {
+    let session_name = match new_session_name {
+        Some(name) => name,
+        None => &generate_session_name()
+    };
+    new_session(session_name);
+}
 
-
+fn generate_session_name() -> String{
+    let git_branch = get_git_branch();
+    let current_file = String::new();
+    let session_name = format!("{}{}",current_file,git_branch);
+    return session_name;
 }
